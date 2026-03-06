@@ -1,0 +1,12 @@
+{
+	"type": "code",
+	"modId": "compostbin",
+	"name": "Compost Bin",
+	"authors": ["gtmat"],
+	"description": "A barrel-variant block with 8 slots that accepts rottable items, accelerates rot at 150% speed, and converts accumulated rot into compost via sealing.",
+	"version": "1.0.0",
+	"dependencies": {
+		"game": "",
+		"survival": ""
+	}
+}

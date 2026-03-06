@@ -1,0 +1,9 @@
+{
+	"block-compostbin": "Compost Bin",
+	"compostbin-title": "Compost Bin",
+	"compostbin-seal": "Seal",
+	"compostbin-empty": "Empty",
+	"compostbin-composting": "Composting: {0} / {1}",
+	"compostbin-contents": "Contents: {0} rot",
+	"compostbin-willproduce": "Will produce {0}x {1} after {2} of sealing."
+}
