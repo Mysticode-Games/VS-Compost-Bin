@@ -5,8 +5,13 @@
 	"authors": ["gtmat"],
 	"description": "A barrel-variant block with 8 slots that accepts rottable items, accelerates rot at 150% speed, and converts accumulated rot into compost via sealing.",
 	"version": "1.0.0",
+	"side": "Universal",
+	"requiredOnClient": true,
+	"requiredOnServer": true,
+	"website": "https://github.com/Mysticode-Games/VS-Compost-Bin",
+	"iconPath": "modicon.png",
 	"dependencies": {
-		"game": "",
-		"survival": ""
+		"game": "1.20.0",
+		"survival": "1.20.0"
 	}
 }
