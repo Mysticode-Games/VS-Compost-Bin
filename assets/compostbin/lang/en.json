@@ -5,5 +5,10 @@
 	"compostbin-empty": "Empty",
 	"compostbin-composting": "Composting: {0} / {1}",
 	"compostbin-contents": "Contents: {0} rot",
-	"compostbin-willproduce": "Will produce {0}x {1} after {2} of sealing."
+	"compostbin-willproduce": "Will produce {0}x {1} after {2} of sealing.",
+	"compostbin-rate": "Decomposition: {0}x speed",
+	"compostbin-stalled": "Decomposition stalled ({0}/{1} perishable items)",
+	"compostbin-overheating": "OVERHEATING — ignition in {0}! Add dry offerings or remove perishables!",
+	"compostbin-ignition": "Ignition in {0} hours",
+	"compostbin-turned": "Recently turned ({0}x aeration boost)"
 }

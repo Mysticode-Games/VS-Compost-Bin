@@ -1,4 +1,5 @@
 using System;
+using Cairo;
 using Vintagestory.API.Client;
 using Vintagestory.API.Common;
 using Vintagestory.API.Config;
@@ -10,13 +11,18 @@ namespace CompostBin
 {
     /// <summary>
     /// The scrying glass through which the summoner peers into the compost bin —
-    /// 8 slots arranged in a 4x2 grid, with a seal button that manifests
-    /// only when the rite's prerequisites are met.
+    /// 8 slots in a 4x2 grid, status text above a thermometer arrow that fills
+    /// left-to-right with heat (following the firepit's own pattern), °C readout
+    /// to its right, and a seal button that manifests only when the rite's
+    /// prerequisites are met.
     /// </summary>
     public class GuiDialogCompostBin : GuiDialogBlockEntity
     {
         EnumPosFlag screenPos;
         BECompostBin beCompostBin;
+
+        // Cached for the Cairo draw callback — the daemon remembers between frames
+        int cachedDisplayTemp;
 
         protected override double FloatyDialogPosition => 0.6;
         protected override double FloatyDialogAlign => 0.8;
@@ -33,21 +39,33 @@ namespace CompostBin
 
         private void SetupDialog()
         {
-            // 4x2 slot grid for the 8 vessels of decay
+            // 4x2 slot grid for the eight vessels of decay
             int[] slotIds = new int[] { 0, 1, 2, 3, 4, 5, 6, 7 };
             ElementBounds slotGridBounds = ElementStdBounds.SlotGrid(EnumDialogArea.None, 0, 30, 4, 2);
 
             double top = slotGridBounds.fixedHeight + slotGridBounds.fixedY + 10;
 
-            // Seal button — appears below the grid
-            ElementBounds sealButtonBounds = ElementBounds.Fixed(0, top, 80, 25);
+            // Thermometer bar — immediately below the slots, fills left-to-right
+            ElementBounds barBounds = ElementBounds.Fixed(0, top, 165, 16);
 
-            // Status text — to the right of the button
-            ElementBounds statusTextBounds = ElementBounds.Fixed(90, top, 200, 60);
+            // Temperature overlay — left-aligned on the bar
+            ElementBounds tempLeftBounds = ElementBounds.Fixed(3, top, 60, 16);
+
+            // Warning overlay — right-aligned on the bar
+            ElementBounds warnRightBounds = ElementBounds.Fixed(0, top, 162, 16);
+
+            // Status text — compact single line below the bar
+            double statusTop = top + 20;
+            ElementBounds statusTextBounds = ElementBounds.Fixed(0, statusTop, 250, 25);
+
+            double buttonTop = statusTop + 28;
+
+            // Seal button — below the thermometer
+            ElementBounds sealButtonBounds = ElementBounds.Fixed(0, buttonTop, 80, 25);
 
             ElementBounds bgBounds = ElementBounds.Fill.WithFixedPadding(GuiStyle.ElementToDialogPadding);
             bgBounds.BothSizing = ElementSizing.FitToChildren;
-            bgBounds.WithChildren(slotGridBounds, sealButtonBounds, statusTextBounds);
+            bgBounds.WithChildren(slotGridBounds, statusTextBounds, barBounds, tempLeftBounds, warnRightBounds, sealButtonBounds);
 
             ElementBounds dialogBounds = ElementStdBounds.AutosizedMainDialog
                 .WithFixedAlignmentOffset(
@@ -61,53 +79,110 @@ namespace CompostBin
                 .AddDialogTitleBar(DialogTitle, OnTitleBarClose)
                 .BeginChildElements(bgBounds)
                     .AddItemSlotGrid(Inventory, SendInvPacket, 4, slotIds, slotGridBounds, "slotGrid")
+                    .AddDynamicText(
+                        "",
+                        CairoFont.WhiteDetailText(),
+                        statusTextBounds,
+                        "statusText")
+                    .AddDynamicCustomDraw(barBounds, OnThermometerDraw, "thermometer")
+                    .AddDynamicText(
+                        "",
+                        CairoFont.WhiteSmallText()
+                            .WithStroke(ColorUtil.BlackArgbDouble, 0.75),
+                        tempLeftBounds,
+                        "tempText")
+                    .AddDynamicText(
+                        "",
+                        CairoFont.WhiteSmallText()
+                            .WithOrientation(EnumTextOrientation.Right)
+                            .WithStroke(ColorUtil.BlackArgbDouble, 0.75),
+                        warnRightBounds,
+                        "warnText")
                     .AddSmallButton(
                         Lang.Get("compostbin:compostbin-seal"),
                         OnSealClick,
                         sealButtonBounds,
                         EnumButtonStyle.Normal,
                         "sealButton")
-                    .AddDynamicText(
-                        GetStatusText(),
-                        CairoFont.WhiteDetailText(),
-                        statusTextBounds,
-                        "statusText")
                 .EndChildElements()
                 .Compose();
 
-            UpdateSealButtonVisibility();
+            UpdateContents();
         }
 
         /// <summary>
-        /// Refresh the displayed contents and seal button state.
+        /// Cairo draw callback — renders a rectangular thermometer bar, filling
+        /// left-to-right with an amber-to-red gradient proportional to temperature.
+        /// </summary>
+        private void OnThermometerDraw(Context ctx, ImageSurface surface, ElementBounds currentBounds)
+        {
+            double w = currentBounds.InnerWidth;
+            double h = currentBounds.InnerHeight;
+
+            // Dark background — the cold, empty vessel
+            GuiElement.RoundRectangle(ctx, 0, 0, w, h, 1);
+            ctx.SetSourceRGBA(0.15, 0.15, 0.15, 1);
+            ctx.Fill();
+
+            // Light border
+            GuiElement.RoundRectangle(ctx, 0, 0, w, h, 1);
+            ctx.SetSourceRGBA(0.4, 0.4, 0.4, 1);
+            ctx.LineWidth = 1;
+            ctx.Stroke();
+
+            double fillRel = cachedDisplayTemp / 100.0;
+            if (fillRel > 0.01)
+            {
+                double fillW = w * fillRel;
+
+                // Gradient fill — amber to red, left to right
+                GuiElement.RoundRectangle(ctx, 0, 0, fillW, h, 1);
+                LinearGradient gradient = new LinearGradient(0, 0, w, 0);
+                gradient.AddColorStop(0, new Color(0.85, 0.55, 0.1, 1));
+                gradient.AddColorStop(1, new Color(0.9, 0.15, 0.1, 1));
+                ctx.SetSource(gradient);
+                ctx.Fill();
+                gradient.Dispose();
+            }
+        }
+
+        /// <summary>
+        /// Refresh all displayed state: status text, thermometer arrow, °C readout, seal button.
+        /// The unified update — all state rendered in one pass.
         /// </summary>
         public void UpdateContents()
         {
             if (SingleComposer == null) return;
 
-            SingleComposer.GetDynamicText("statusText")?.SetNewText(GetStatusText());
-            UpdateSealButtonVisibility();
-        }
-
-        private string GetStatusText()
-        {
             if (beCompostBin == null)
             {
                 beCompostBin = capi.World.BlockAccessor.GetBlockEntity(BlockEntityPosition) as BECompostBin;
             }
-            if (beCompostBin == null) return "";
+            if (beCompostBin == null) return;
 
+            var statusText = SingleComposer.GetDynamicText("statusText");
+            var tempText = SingleComposer.GetDynamicText("tempText");
+            var warnText = SingleComposer.GetDynamicText("warnText");
+
+            // --- Sealed: the composting rite is underway ---
             if (beCompostBin.Sealed)
             {
                 double hoursPassed = capi.World.Calendar.TotalHours - beCompostBin.SealedSinceTotalHours;
                 string passedText = hoursPassed > 24
                     ? Lang.Get("{0} days", Math.Floor(hoursPassed / capi.World.Calendar.HoursPerDay * 10) / 10)
                     : Lang.Get("{0} hours", Math.Floor(hoursPassed));
-                string totalText = Lang.Get("{0} days", Math.Round(480.0 / capi.World.Calendar.HoursPerDay, 1));
-                return Lang.Get("compostbin:compostbin-composting", passedText, totalText);
+                string totalText = Lang.Get("{0} days", Math.Round(BECompostBin.CompostingDurationHours / capi.World.Calendar.HoursPerDay, 1));
+
+                statusText?.SetNewText(Lang.Get("compostbin:compostbin-composting", passedText, totalText));
+                cachedDisplayTemp = 0;
+                SingleComposer.GetCustomDraw("thermometer")?.Redraw();
+                tempText?.SetNewText("");
+                warnText?.SetNewText("");
+                UpdateSealButtonVisibility();
+                return;
             }
 
-            // Count the rot in all slots
+            // --- Census the inventory ---
             int totalRot = 0;
             bool allRot = true;
             bool hasItems = false;
@@ -128,20 +203,98 @@ namespace CompostBin
                 }
             }
 
+            // --- The vessel stands empty ---
             if (!hasItems)
             {
-                return Lang.Get("compostbin:compostbin-empty");
+                statusText?.SetNewText(Lang.Get("compostbin:compostbin-empty"));
+                cachedDisplayTemp = 0;
+                SingleComposer.GetCustomDraw("thermometer")?.Redraw();
+                tempText?.SetNewText("");
+                warnText?.SetNewText("");
+                UpdateSealButtonVisibility();
+                return;
             }
 
-            if (allRot && totalRot >= 64)
+            // --- All rot, sufficient for sealing ---
+            if (allRot && totalRot >= BECompostBin.MinRotForSeal)
             {
-                int compostYield = totalRot / 4;
-                return Lang.Get("compostbin:compostbin-willproduce", compostYield,
+                int compostYield = totalRot / BECompostBin.CompostYieldDivisor;
+                statusText?.SetNewText(Lang.Get("compostbin:compostbin-willproduce", compostYield,
                     Lang.Get("item-compost"),
-                    Lang.Get("{0} days", Math.Round(480.0 / capi.World.Calendar.HoursPerDay, 1)));
+                    Lang.Get("{0} days", Math.Round(BECompostBin.CompostingDurationHours / capi.World.Calendar.HoursPerDay, 1))));
+                cachedDisplayTemp = 0;
+                SingleComposer.GetCustomDraw("thermometer")?.Redraw();
+                tempText?.SetNewText("");
+                warnText?.SetNewText("");
+                UpdateSealButtonVisibility();
+                return;
             }
 
-            return Lang.Get("compostbin:compostbin-contents", totalRot);
+            // --- Active decomposition: compute temperature and speed ---
+            beCompostBin.GetCriticalMassCounts(out int perishableCount, out int dryOfferingCount);
+            float heatFactor = BECompostBin.ComputeHeatFactor(perishableCount, dryOfferingCount);
+
+            ClimateCondition climate = capi.World.BlockAccessor.GetClimateAt(
+                BlockEntityPosition, EnumGetClimateMode.NowValues);
+            float seasonalMod = BECompostBin.ComputeSeasonalModifier(climate?.Temperature ?? 20f);
+            if (beCompostBin.wateredCoolingUntilTotalHours > capi.World.Calendar.TotalHours)
+            {
+                seasonalMod *= 0.5f;
+            }
+
+            int displayTemp = BECompostBin.ComputeDisplayTemperature(
+                perishableCount, dryOfferingCount,
+                beCompostBin.OverheatingSinceTotalHours, capi.World.Calendar.TotalHours,
+                seasonalMod);
+
+            float turningBoost = beCompostBin.ComputeTurningBoost(capi.World.Calendar.TotalHours);
+            float effectiveSpeed = BECompostBin.BasePerishSpeedMul * heatFactor * seasonalMod * turningBoost;
+
+            // --- Build compact status — one line; the arrow carries temperature ---
+            string status;
+
+            if (beCompostBin.OverheatingSinceTotalHours > 0)
+            {
+                double hoursLeft = BECompostBin.OverheatIgnitionHours - (capi.World.Calendar.TotalHours - beCompostBin.OverheatingSinceTotalHours);
+                if (hoursLeft > 0)
+                {
+                    status = Lang.Get("compostbin:compostbin-ignition", (int)Math.Ceiling(hoursLeft));
+                }
+                else
+                {
+                    status = Lang.Get("compostbin:compostbin-rate", Math.Round(effectiveSpeed, 1));
+                }
+            }
+            else if (dryOfferingCount > 0 && perishableCount < dryOfferingCount)
+            {
+                status = Lang.Get("compostbin:compostbin-stalled", perishableCount, dryOfferingCount);
+            }
+            else if (effectiveSpeed > 1f)
+            {
+                string speedText = Lang.Get("compostbin:compostbin-rate", Math.Round(effectiveSpeed, 1));
+                status = turningBoost > 1f
+                    ? speedText + " " + Lang.Get("compostbin:compostbin-turned", Math.Round(turningBoost, 1))
+                    : speedText;
+            }
+            else
+            {
+                status = totalRot > 0
+                    ? Lang.Get("compostbin:compostbin-contents", totalRot)
+                    : "";
+            }
+
+            statusText?.SetNewText(status);
+
+            // --- Thermometer arrow: redraw with current heat ---
+            cachedDisplayTemp = displayTemp;
+            SingleComposer.GetCustomDraw("thermometer")?.Redraw();
+
+            // --- Temperature on the left, warning on the right ---
+            string tempString = displayTemp <= 25 ? Lang.Get("Cold") : displayTemp + "\u00B0C";
+            tempText?.SetNewText(tempString);
+            warnText?.SetNewText(beCompostBin.OverheatingSinceTotalHours > 0 ? "OVERHEATING" : "");
+
+            UpdateSealButtonVisibility();
         }
 
         private void UpdateSealButtonVisibility()
@@ -167,9 +320,8 @@ namespace CompostBin
             if (beCompostBin == null || beCompostBin.Sealed) return true;
             if (!beCompostBin.CanSeal()) return true;
 
-            // Do not invoke SealBin() client-side — the server is the sole authority.
-            // Packet 1337 tells the server to seal; it will propagate the state back.
-            capi.Network.SendBlockEntityPacket(BlockEntityPosition, 1337);
+            // The server is the sole authority — packet 1337 commands the seal
+            capi.Network.SendBlockEntityPacket(BlockEntityPosition, BECompostBin.SealPacketId);
             capi.World.PlaySoundAt(new AssetLocation("game:sounds/player/seal"), BlockEntityPosition, 0.4, null);
 
             TryClose();

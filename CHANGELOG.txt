@@ -1,0 +1,49 @@
+Yes! It is, indeed, another compost mod!  My wife and I were trying to find a mod to make composting better, and did not really like any of the offerings we were seeing, so I strongarmed claude code into helping me make this.  Please accept my offering of a modded barrel which works as a compost bin.  The bin has 8 slots, accepts perishable items, as well as rot, dry grass, cattail tops, thatch and papyrus.  Perishable items placed in the bin will spoil at a rate of 150% their normal rate, dry plant matter spoils in 4 days at baseline speed.  If the bin contains at least 64 rot, and nothing but rot, you can seal the bin and the vanilla compost reaction occurs.  To build the bin, place the normal items for the barrel recipe, with 2 dry grass in the empty side slots:
+
+
+
+
+SBS
+
+GBG
+
+SBS
+
+
+
+
+v1.2.0
+------
+
+- The GUI now has a graphical thermometer bar that fills left-to-right with heat, so you can actually see what your pile is doing at a glance.  Temperature shows on the left side of the bar, and OVERHEATING warnings show on the right.
+- Fixed the fire mechanic so the bin actually catches fire instead of just vanishing into the void.  Fire spawns above the bin and uses it as fuel, so it spreads naturally like any other fire.
+- Miscellaneous cleanup and localization fixes.
+
+
+v1.1.0
+------
+
+This is the big one.  I went down the rabbit hole of trying to make the bin behave more like an actual compost pile, and this is what came out the other end.
+
+Temperature & Heat:
+- The bin now has a temperature model!  Decomposition speed scales with the ratio of perishable items ("greens") to dry plant matter ("browns").  A balanced 1:1 ratio gets you baseline speed, a 2:1 ratio gets you double, and anything beyond that caps out.  The season matters too — winter slows things down, summer speeds them up.  The full range goes from 0.375x in frozen winter to 9.0x at peak summer with a hot, freshly turned pile.
+
+Turning:
+- Sneak + right-click the bin with a shovel to turn the pile.  This gives you a 2x speed boost that decays over 12 game hours.  Costs 1 shovel durability.  You will see a burst of steam when you do it, which is a nice touch.
+
+Watering:
+- Right-click with a watering can to cool an overheating pile.  Halves the seasonal modifier for 6 game hours and resets the fire timer.  Costs 2 seconds of water.
+
+Fire Risk:
+- If you stuff way too many greens in without enough browns (above 2:1 ratio, with browns present), the bin starts overheating.  You get a 24 game-hour countdown before it actually catches fire.  The good news is that the elevated rot speed means your food scraps are rotting away faster, so moderate overloads tend to self-correct.  You really have to be shoveling food in there to actually start a fire.  Pure greens with no browns is slimy but safe — no fire risk.  Watering buys you time to fix the ratio.
+
+Dry Offering Changes:
+- Dry plant matter now decomposes on an accumulated progress system instead of a flat timer.  The speed scales with all the same factors as everything else (heat, season, turning).  At baseline it is still about 4 days, but a hot well-maintained pile can get it done in under a day.
+- Browns get consumed as greens rot — roughly 1 brown consumed for every 4 rot produced.  The consumed browns also yield a bit of rot back.
+- Below a 1:1 green-to-brown ratio, decomposition stalls.  You need enough food scraps to get the microbial party started.  This was the "future release" item from v1.0.0.
+
+Particles:
+- Steam rises from hot bins, smoke pours from overheating ones.  Intensity scales with temperature.  Freshly turned bins vent a burst of trapped heat.
+
+GUI & Hover Text:
+- Temperature, decomposition speed, turning boost, stalled warnings, and overheating countdowns all show in the GUI and hover text now.

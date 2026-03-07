@@ -12,9 +12,7 @@
 	textures: {
 		"lid": { base: "game:block/wood/barrel/lid" }
 	},
-	attributes: {
-		quantitySlots: 8
-	},
+	attributes: {},
 	sideao: {
 		all: false
 	},
@@ -36,8 +34,8 @@
 		x2: 1, y2: 0.9375, z2: 1
 	},
 	combustibleProps: {
-		burnTemperature: 600,
-		burnDuration: 20
+		burnTemperature: 800,
+		burnDuration: 30
 	},
 	sounds: {
 		"place": "game:block/planks",

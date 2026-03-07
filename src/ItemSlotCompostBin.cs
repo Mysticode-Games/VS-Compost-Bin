@@ -1,4 +1,3 @@
-using System.Linq;
 using Vintagestory.API.Common;
 
 #nullable disable
@@ -8,23 +7,10 @@ namespace CompostBin
     /// <summary>
     /// A vessel that accepts only that which rots, that which has rotted,
     /// that which is born of rot — or those few dry offerings
-    /// that the bin deigns to receive: grass, cattail tops, and thatch.
+    /// that the bin deigns to receive.
     /// </summary>
     public class ItemSlotCompostBin : ItemSlotSurvival
     {
-        // The sigils of items accepted by name:
-        // dry offerings (will decompose inside the bin),
-        // rot (the product of decay), and compost (the fruit of the rite)
-        private static readonly string[] AcceptedByCodes = new string[]
-        {
-            "drygrass",
-            "cattailtops",
-            "papyrustops",
-            "thatch",
-            "rot",
-            "compost"
-        };
-
         public ItemSlotCompostBin(InventoryBase inventory) : base(inventory)
         {
         }
@@ -48,8 +34,39 @@ namespace CompostBin
         }
 
         /// <summary>
+        /// When an offering departs the vessel, strip the bin's tracking attributes
+        /// so the stack may rejoin its kin in the world without impediment.
+        /// </summary>
+        public override ItemStack TakeOutWhole()
+        {
+            ItemStack stack = base.TakeOutWhole();
+            StripBinAttributes(stack);
+            return stack;
+        }
+
+        /// <inheritdoc />
+        public override ItemStack TakeOut(int quantity)
+        {
+            ItemStack stack = base.TakeOut(quantity);
+            StripBinAttributes(stack);
+            return stack;
+        }
+
+        /// <summary>
+        /// Removes the compost bin's internal tracking attributes from a stack,
+        /// restoring it to a form that will merge cleanly with untouched stacks.
+        /// </summary>
+        private static void StripBinAttributes(ItemStack stack)
+        {
+            if (stack?.Attributes == null) return;
+            stack.Attributes.RemoveAttribute("compostBinDecomposeProgress");
+            stack.Attributes.RemoveAttribute("compostBinLastTickHours");
+        }
+
+        /// <summary>
         /// The warding test: does this item bear the mark of decay,
         /// is it the product of decay, or is it among the named dry offerings?
+        /// Dry offering codes are sourced from BECompostBin — one truth, one list.
         /// </summary>
         private bool IsAcceptedItem(ItemSlot sourceSlot)
         {
@@ -58,13 +75,17 @@ namespace CompostBin
             var collectible = sourceSlot.Itemstack.Collectible;
             if (collectible == null) return false;
 
-            // Accept items by their code — rot, compost, and dry offerings
             string code = collectible.Code?.Path;
             if (code != null)
             {
-                for (int i = 0; i < AcceptedByCodes.Length; i++)
+                // Accept rot and compost by name
+                if (code == "rot" || code == "compost") return true;
+
+                // Accept dry offerings — the canonical list lives in BECompostBin
+                var dryOfferings = BECompostBin.DryOfferingCodes;
+                for (int i = 0; i < dryOfferings.Length; i++)
                 {
-                    if (code == AcceptedByCodes[i]) return true;
+                    if (code == dryOfferings[i]) return true;
                 }
             }
 
@@ -72,9 +93,12 @@ namespace CompostBin
             var transProps = collectible.GetTransitionableProperties(
                 inventory.Api.World, sourceSlot.Itemstack, null
             );
-            if (transProps != null && transProps.Any(p => p.Type == EnumTransitionType.Perish))
+            if (transProps != null)
             {
-                return true;
+                for (int i = 0; i < transProps.Length; i++)
+                {
+                    if (transProps[i].Type == EnumTransitionType.Perish) return true;
+                }
             }
 
             return false;

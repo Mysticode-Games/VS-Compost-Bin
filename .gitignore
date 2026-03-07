@@ -4,3 +4,5 @@ obj/
 *.suo
 *.DotSettings
 .vs/
+*.zip
+*.dll
