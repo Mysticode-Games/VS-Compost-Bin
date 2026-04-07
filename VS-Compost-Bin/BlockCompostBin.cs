@@ -43,7 +43,7 @@ namespace CompostBin
             bool isSneaking = byPlayer.WorldData.EntityControls.ShiftKey;
 
             // ── Turning: sneak + right-click with shovel aerates the pile ──
-            if (isSneaking && byPlayer.InventoryManager.ActiveTool == EnumTool.Shovel)
+            if (isSneaking && byPlayer.InventoryManager.ActiveTool == EnumTool.Shovel && !be.inventory.Empty)
             {
                 if (world.Side == EnumAppSide.Server)
                 {
