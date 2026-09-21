@@ -17,7 +17,8 @@ namespace CompostBin
         {
             if (transType != EnumTransitionType.Perish || !CompostItemBehavior.HasBinTransition(inSlot?.Itemstack))
                 return true;
-            if (inSlot is ItemSlotCompostBin slot && !slot.Owner.Sealed && !slot.Owner.IsBurning)
+            if (inSlot is ItemSlotCompostBin slot && !slot.Owner.Sealed && !slot.Owner.IsBurning
+                && (!CompostItemBehavior.IsBrown(inSlot.Itemstack) || slot.Owner.HasGreens))
                 return true;
             __result = 0;
             return false;

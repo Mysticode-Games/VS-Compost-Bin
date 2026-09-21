@@ -21,7 +21,7 @@ namespace CompostBin
         }
         internal bool AllowBrownAdvance;
         private bool updatingPhysics, physicsLoaded, ignitionRequested;
-        private double oxygen = 0.8, brownBurnRemainder, transitionHours;
+        private double oxygen = 0.8, brownBurnRemainder, transitionHours, brownTransitionHours;
         private ITreeAttribute legacyDecomposition;
         public bool IsSmoldering
         {
@@ -36,6 +36,8 @@ namespace CompostBin
             : (float)(Settings.DecompositionSpeedMultiplier * Math.Max(1,
                 BasePerishSpeedMul * 2 * CompostPhysics.Activity(ReadPhysicsState(), Settings))
                 * CompostPhysics.PeatDecompositionMultiplier(ReadPhysicsState(), Settings));
+        public float BrownDecompositionRate => HasGreens
+            ? DecompositionRate * (float)Settings.BrownDecompositionSpeedMultiplier : 0;
         public bool Overheating => !Sealed && !IsBurning && pileTemperature >= Settings.OverheatingTemperature;
         public double GetTemperature() => pileTemperature;
         public static double StackMass(ItemStack stack) => stack == null ? 0 :
@@ -103,7 +105,7 @@ namespace CompostBin
                     state.Browns += mass;
                     state.OrganicStacks += stacks;
                 }
-                else if (HasPerishTransition(slot.Itemstack))
+                else if (IsGreenOffering(slot.Itemstack))
                 {
                     state.Greens += mass;
                     state.OrganicStacks += stacks;
@@ -173,29 +175,49 @@ namespace CompostBin
                 SyncStackHeat(next.DryMass > 0 ? next.Water / next.DryMass : 0);
                 UpdateSmoldering(hours);
                 transitionHours += hours;
+                brownTransitionHours = HasGreens ? brownTransitionHours + hours : 0;
                 if (transitionHours >= 0.051 && !Sealed && !IsSmoldering)
                 {
                     AllowBrownAdvance = true;
-                    foreach (var slot in inventory)
+                    // Resolve food first so the last green becoming rot pauses
+                    // browns in this same update, regardless of inventory order.
+                    for (int pass = 0; pass < 2; pass++)
                     {
-                        if (slot.Empty)
-                            continue;
-                        var old = slot.Itemstack;
-                        var tree = old.Attributes.GetTreeAttribute("transitionstate");
-                        if (CompostItemBehavior.HasBinTransition(old))
-                            tree?.SetDouble("lastUpdatedTotalHours", Api.World.Calendar.TotalHours - transitionHours);
-                        old.Collectible.UpdateAndGetTransitionStates(Api.World, slot);
-                        if (!slot.Empty && !ReferenceEquals(old, slot.Itemstack))
+                        foreach (var slot in inventory)
                         {
-                            CompostItemBehavior.SetWater(slot.Itemstack, CompostItemBehavior.WaterRatio(old));
-                            slot.Itemstack.Collectible.SetTemperature(Api.World, slot.Itemstack, (float)pileTemperature, false);
-                            slot.MarkDirty();
+                            if (slot.Empty)
+                                continue;
+                            var old = slot.Itemstack;
+                            bool binTransition = CompostItemBehavior.HasBinTransition(old);
+                            if (binTransition != (pass == 1))
+                                continue;
+                            // Native transitions ignore intervals <= 0.05 hours.
+                            // Keep a shorter active brown interval for the next
+                            // flush instead of discarding it with the food clock.
+                            if (CompostItemBehavior.IsBrown(old) && brownTransitionHours < 0.051)
+                                continue;
+                            var tree = old.Attributes.GetTreeAttribute("transitionstate");
+                            if (binTransition)
+                                tree?.SetDouble("lastUpdatedTotalHours", Api.World.Calendar.TotalHours
+                                    - (CompostItemBehavior.IsBrown(old) ? brownTransitionHours : transitionHours));
+                            old.Collectible.UpdateAndGetTransitionStates(Api.World, slot);
+                            if (!slot.Empty && !ReferenceEquals(old, slot.Itemstack))
+                            {
+                                CompostItemBehavior.SetWater(slot.Itemstack, CompostItemBehavior.WaterRatio(old));
+                                slot.Itemstack.Collectible.SetTemperature(Api.World, slot.Itemstack, (float)pileTemperature, false);
+                                slot.MarkDirty();
+                            }
                         }
                     }
                     transitionHours = 0;
+                    if (!HasGreens || brownTransitionHours >= 0.051)
+                        brownTransitionHours = 0;
                 }
                 else if (Sealed || IsSmoldering)
+                {
                     transitionHours = 0;
+                    brownTransitionHours = 0;
+                }
                 ignitionRequested |= CompostPhysics.CanIgnite(ReadPhysicsState(), Settings);
             }
             finally { AllowBrownAdvance = false; updatingPhysics = false; }
@@ -303,7 +325,8 @@ namespace CompostBin
 
         public string PhysicsDescription() => Lang.Get("compostbin:physics-status", Math.Round(pileTemperature),
             Math.Round(Moisture * 100), Math.Round(oxygen * 100), Math.Round(DecompositionRate, 1))
-            + (Settings.BrownDecompositionSpeedMultiplier != 1 ? "\n" + Lang.Get("compostbin:physics-brown-rate", Math.Round(DecompositionRate * Settings.BrownDecompositionSpeedMultiplier, 1)) : "")
+            + (ReadPhysicsState().Browns > 0 && !HasGreens ? "\n" + Lang.Get("compostbin:physics-browns-paused")
+                : Settings.BrownDecompositionSpeedMultiplier != 1 ? "\n" + Lang.Get("compostbin:physics-brown-rate", Math.Round(BrownDecompositionRate, 1)) : "")
             + PeatDescription()
             + (IsSmoldering ? "\n" + Lang.Get("compostbin:physics-smoldering") : Overheating ? "\n" + Lang.Get("compostbin:physics-warning") : "");
 

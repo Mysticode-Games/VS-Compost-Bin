@@ -109,9 +109,11 @@ namespace CompostBin
         {
             if (Sealed || IsBurning || IsSmoldering)
                 return 0;
+            if (transType == EnumTransitionType.Perish && CompostItemBehavior.IsBrown(stack))
+                return BrownDecompositionRate;
             return transType == EnumTransitionType.Perish
                 ? DecompositionRate * (CompostItemBehavior.HasPeatTransition(stack) ? (float)(144 / Settings.PeatDecompositionHours)
-                    : CompostItemBehavior.IsBrown(stack) ? (float)Settings.BrownDecompositionSpeedMultiplier : 1) : 1;
+                    : 1) : 1;
         }
 
         public override void Initialize(ICoreAPI api)
@@ -291,6 +293,19 @@ namespace CompostBin
 
             return false;
         }
+        private bool IsGreenOffering(ItemStack stack) => stack?.Collectible?.Code?.Path is not (null or "rot" or "compost")
+            && !IsDryOffering(stack) && !CompostItemBehavior.IsPeat(stack) && HasPerishTransition(stack);
+
+        internal bool HasGreens
+        {
+            get
+            {
+                foreach (var slot in inventory)
+                    if (!slot.Empty && IsGreenOffering(slot.Itemstack))
+                        return true;
+                return false;
+            }
+        }
         public void GetCriticalMassCounts(out int perishableCount, out int dryOfferingCount)
         {
             perishableCount = 0;
@@ -306,7 +321,7 @@ namespace CompostBin
                 {
                     dryOfferingCount += slot.Itemstack.StackSize;
                 }
-                else if (!CompostItemBehavior.IsPeat(slot.Itemstack) && HasPerishTransition(slot.Itemstack))
+                else if (IsGreenOffering(slot.Itemstack))
                 {
                     perishableCount += slot.Itemstack.StackSize;
                 }
@@ -453,6 +468,8 @@ namespace CompostBin
 
         private void OnSlotModified(int slotId)
         {
+            if (!HasGreens)
+                brownTransitionHours = 0;
             if (!updatingPhysics && Api?.Side == EnumAppSide.Server)
                 MixContents();
             if (Api?.Side == EnumAppSide.Client)

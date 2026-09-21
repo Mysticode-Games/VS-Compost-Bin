@@ -16,6 +16,8 @@ Version 1.3.6 adds a normal-spoilage floor for unsealed bins below 75°C. Existi
 | `IdealGreenBrownRatioMin` | 1 | 0.1–20 | Lower end of the green/brown ratio with full biological activity. |
 | `IdealGreenBrownRatioMax` | 4 | 0.1–20 | Upper end of that range; must be at least the minimum. |
 
+Since 1.3.10, the brown transition added by this mod requires greens in the bin. It pauses with progress retained when the greens are removed or finish rotting; rot, compost, and peat do not count. This condition overrides the spoilage floor described below and all brown speed multipliers. Adding greens resumes decomposition without credit for the paused time. Peat remains a separate additive with its existing consumption behavior.
+
 Speed multipliers change rot production, not heat production directly; heat has its own settings below. Below 75°C, unsealed bins use at least 1× base spoilage before applying the configured speed multipliers. Cold, dry, poorly aerated, or unbalanced contents therefore cannot reduce the rate below normal with default settings. Admin multipliers below 1 can deliberately slow or pause it. Temperature, moisture, aeration, and mixture still affect biological heating without this floor. Spoilage still stops at 75°C and above, while sealed, burning, or smoldering. Supported browns still pause outside the bin. Duration and yield changes apply to existing sealed batches; elapsed time is retained, so reducing the duration can finish a batch on its next update.
 
 ## Peat booster

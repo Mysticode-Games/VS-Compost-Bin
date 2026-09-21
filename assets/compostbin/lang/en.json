@@ -2,6 +2,7 @@
 	"block-compostbin": "Compost Bin",
 	"physics-status": "Temperature: {0}°C\nMoisture: {1}% · Aeration: {2}%\nDecomposition: {3}x speed",
 	"physics-brown-rate": "Brown decomposition: {0}x speed",
+	"physics-browns-paused": "Brown decomposition paused: add greens.",
 	"physics-smoldering": "Smoldering! Greens, browns, and peat are being destroyed. Cool the pile.",
 	"physics-peat": "Peat dose: {0}% of target · Decomposition bonus: +{1}%",
 	"physics-peat-excess": "Excess peat: increased heating when the pile is hot and dry.",

@@ -6,7 +6,7 @@ A Vintage Story mod that adds a craftable compost bin — a barrel-style block t
 
 - **8 inventory slots** — accepts any perishable item, plus dry grass, cattail tops, papyrus tops, and thatch
 - **Physics-based decomposition** — temperature, moisture, aeration and the mixture determine the native spoilage multiplier
-- **Portable heat and decomposition** — supported browns decompose only in the bin, but retain native progress when removed; item heat and moisture also survive transfers
+- **Portable heat and decomposition** — supported browns decompose only in an unsealed bin containing greens. Removing the greens or letting them finish rotting pauses browns without losing progress; item heat and moisture also survive transfers
 - **Neighboring-bin heat exchange** — heat escapes through six faces or transfers to adjacent compost bins; neglected clusters can ignite
 - **Configurable peat booster** — peat bricks briefly accelerate decomposition, increase heat, and retain aeration after turning; excess peat makes hot, dry piles more dangerous. Peat decomposes quickly with very little rot output.
 - **Sealing mechanic** — when all slots contain rot and the total reaches 64+, the bin can be sealed to begin composting
@@ -36,7 +36,7 @@ S P S
 
 ## Installation
 
-1. Obtain the `compostbin-v1.3.9.zip` package for Vintage Story 1.22.
+1. Obtain the `compostbin-v1.3.10.zip` package for Vintage Story 1.22.
 2. Place the zip file in your Vintage Story `Mods` folder:
    - Windows: `%appdata%/VintagestoryData/Mods/`
    - Linux: `~/.config/VintagestoryData/Mods/`

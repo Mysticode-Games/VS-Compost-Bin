@@ -12,6 +12,13 @@ SBS
 
 
 
+v1.3.10
+-------
+
+- Browns now require greens to decompose. Brown-only piles pause; adding greens resumes retained progress without crediting inactive time. Rot, compost, and peat do not satisfy this requirement.
+- Process food spoilage before brown transitions so the final green becoming rot pauses browns in the same update, regardless of slot order. Added a paused-browns status hint and regression coverage.
+- Native food spoilage, peat consumption, and heat/fire rules retain their existing behavior.
+
 v1.3.9
 ------
 

@@ -49,7 +49,8 @@ namespace CompostBin
         public override TransitionState[] UpdateAndGetTransitionStates(IWorldAccessor world, ItemSlot slot, ref EnumHandling handling)
         {
             if ((Brown || Peat) && slot.Itemstack != null &&
-                (slot is not ItemSlotCompostBin compostSlot || !compostSlot.Owner.AllowBrownAdvance))
+                (slot is not ItemSlotCompostBin compostSlot || !compostSlot.Owner.AllowBrownAdvance
+                    || (Brown && !compostSlot.Owner.HasGreens)))
                 slot.Itemstack.Attributes.GetTreeAttribute("transitionstate")?.SetDouble("lastUpdatedTotalHours", world.Calendar.TotalHours);
             return null;
         }

@@ -19,7 +19,7 @@ Adjacent loaded bins exchange heat using the two face resistances in series: `1 
 ## Items, actions and native systems
 
 - Greens retain native perish transitions; the bin supplies their decomposition multiplier.
-- Supported vanilla browns without an existing perish definition receive a native 144-effective-hour transition to rot. Its rate is zero outside an unsealed compost bin. Its clock is frozen during outside/transfer updates, so chest time cannot become composting time on reinsertion. Existing perish definitions from other mods are respected.
+- Supported vanilla browns without an existing perish definition receive a native 144-effective-hour transition to rot. Its rate is zero outside an unsealed compost bin or when no greens remain. Rot, compost, and peat do not count as greens. Its clock is frozen while inactive and during outside/transfer updates, so that time cannot become composting time on resumption. Food transitions run first so the last green becoming rot pauses browns regardless of slot order. Existing perish definitions from other mods are respected.
 - Native temperature and transition state travel with stacks. Native merges average temperature and decomposition progress. Large differences can require direct/manual merging under vanilla rules.
 - Portable moisture is an additional value inside the native temperature subtree, which is already excluded from stack equality. A narrow merge patch averages it without bypassing native merge rules.
 - Two narrow Harmony patches use the game's bundled Harmony: pause our added brown transition outside the bin; preserve moisture during native merging. Client setup repeats after server collectibles arrive, using a synchronized collectible attribute to identify the added brown transition.
