@@ -1,4 +1,4 @@
-# Multiplayer configuration audit — 1.3.5
+# Multiplayer configuration audit and hardening — 1.3.9
 
 Scope: Compost Bin source, regression tests, and relevant implementations from the locally installed Vintage Story 1.22.7 assemblies. This was a local code/test audit, not a live malicious-client session or a comprehensive security review of the game.
 
@@ -12,21 +12,23 @@ Added regression checks confirm that client-side changes to duration, yield, ign
 
 Changing the authoritative JSON requires access to the server's data directory and a world/server reload. An in-game admin designation alone does not provide a configuration editor in this mod. Other installed server-side code and privileged server administration are trusted and outside the ordinary-client boundary.
 
-## Findings requiring hardening
+## Findings addressed in 1.3.9
 
-### Remote barrel actions are not range-checked
+### Remote barrel actions
 
-BECompostBin.OnReceivedClientPacket checks the server side, player inventory manager, claim access, and sealed/burning state. It does not check player distance/dimension or require an open inventory session before sealing/forwarding inventory packets.
+The 1.3.5 audit found that BECompostBin.OnReceivedClientPacket checked the server side, player inventory manager, claim access, and sealed/burning state, but did not check player distance/dimension or require an open session before sealing/forwarding inventory packets.
 
 The installed game's ServerSystemBlockSimulation.HandleBlockEntityPacket forwards messages to a loaded block entity without adding a distance check. InventoryGeneric uses InventoryBase.CanPlayerAccess, which returns true; some native inventory movement paths check open state, but the direct activation path is not a substitute for a barrel access check.
 
-Consequently, a modified client can potentially open/seal or interact with a loaded barrel remotely where claim access permits it. This does not alter the server config, but bypasses normal physical interaction. Claim denial remains enforced. Recommended fix: enforce server-side interaction range/dimension and session validation on barrel actions, including native inventory paths that can bypass the block-entity message route.
+Version 1.3.9 checks the server's player position and dimension, server-configured picking range (plus the GUI's half-block slack), land claims, and barrel state. Modification and sealing require an established session. InventoryCompostBin rechecks access for native opening, activation, move/flip permissions, shift-transfer selection, and HasOpened (also used by native held-item interactions). Removal, breaking, and unloading revoke access and close existing sessions. Inventory IDs and client packet coordinates now include the dimension through InternalY; overworld IDs remain unchanged.
 
-### Inventory payload validation is incomplete
+### Inventory payload validation
 
-The barrel forwards every packet ID below 1000 directly to native InventoryNetworkUtil.HandleClientPacket. The native utility decodes bytes before dispatching supported inventory actions. Missing/malformed data can throw rather than be rejected by the mod. No full server crash or denial-of-service impact was established in this audit.
+The 1.3.5 barrel forwarded every packet ID below 1000 directly to native InventoryNetworkUtil.HandleClientPacket. The native utility decoded bytes before dispatching supported inventory actions. Missing/malformed data could throw; no full server crash or denial-of-service impact was established in that audit.
 
-Recommended fix: restrict to supported inventory operations, validate payload presence/size and session/access before decoding, and reject malformed packets without mutating inventory. Preserve legitimate native inventory synchronization and record useful, rate-limited diagnostics.
+Version 1.3.9 accepts only activate/move/flip inventory requests (7/8/9). A 4 KiB limit and schema preflight reject unknown or duplicate protobuf fields, invalid wire types, overflowing/truncated lengths, and invalid varints before native decoding. Typed requests then validate matching IDs, known player inventory references, both inventories' access, slot bounds, creative tabs, positive transfer quantities, and native control values. Decoder exceptions are contained before execution. Valid requests retain native execution and synchronization. Invalid-request warnings are limited to one per barrel per ten seconds and do not log payloads.
+
+The custom network utility covers both the mod's byte-payload route and native typed requests dispatched to its inventory. Native requests dispatched through another inventory still check the compost inventory's modification permissions. This does not replace the engine's global packet decoder or harden every other inventory type.
 
 ## Privileged behavior
 
@@ -34,4 +36,4 @@ The native creative item-creation path requires server-granted Creative mode. Cr
 
 ## Status
 
-No direct ordinary-client configuration override was found in the examined paths. The two access/input-validation findings above remain unpatched in 1.3.5; this audit changed tests and documentation only. A live multiplayer regression and adversarial packet test should accompany any hardening release.
+No direct ordinary-client configuration override was found in the examined paths. The two findings above are addressed in 1.3.9. Regression checks exercise rejected requests and legitimate native inventory execution using installed game assemblies with stubbed world/network services. A live multiplayer regression and malicious-client session remain unperformed; these checks do not establish comprehensive game security. Privileged Creative item creation and other trusted server code remain outside the ordinary-client boundary.

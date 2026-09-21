@@ -12,6 +12,13 @@ SBS
 
 
 
+v1.3.9
+------
+
+- Hardened multiplayer barrel access: opening requires server-side reach, dimension, and claim checks; inventory changes and sealing also require an open session. Native inventory routes recheck the same rules, including stale sessions after moving away, claim changes, sealing, burning, removal, or unloading.
+- Validate inventory packet IDs, encoded structure and size, inventory references, slots, tabs, and controls before native execution. Invalid packets are rejected before mutation with rate-limited diagnostics.
+- Use dimension-aware inventory IDs and client packet coordinates while preserving overworld IDs and saved contents. Added adversarial and legitimate native-inventory regression checks.
+
 v1.3.8
 ------
 

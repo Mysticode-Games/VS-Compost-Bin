@@ -11,7 +11,7 @@ AssemblyLoadContext.Default.Resolving += (context, name) => {
   string f=Path.Combine(dir,name.Name+".dll"); if(File.Exists(f)) return context.LoadFromAssemblyPath(f);
  } return null;
 };
-try { Checks.Run(); NativeFireChecks.Run(); PacketChecks.Run(game); StartupChecks.Run(); NeighborHeatChecks.Run(); ConfigChecks.Run(); SettingsChecks.Run(); SmolderChecks.Run(); GuideReviewChecks.Run(); PeatChecks.Run(); PeatIntegrationChecks.Run(); } catch (Exception e) { Console.WriteLine(e); Environment.Exit(1); }
+try { Checks.Run(); NativeFireChecks.Run(); PacketChecks.Run(game); StartupChecks.Run(); NeighborHeatChecks.Run(); ConfigChecks.Run(); SettingsChecks.Run(); SmolderChecks.Run(); GuideReviewChecks.Run(); InventorySecurityChecks.Run(); PeatChecks.Run(); PeatIntegrationChecks.Run(); } catch (Exception e) { Console.WriteLine(e); Environment.Exit(1); }
 
 public class Stub : DispatchProxy
 {

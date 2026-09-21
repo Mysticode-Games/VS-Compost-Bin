@@ -36,7 +36,7 @@ S P S
 
 ## Installation
 
-1. Obtain the `compostbin-v1.3.8.zip` package for Vintage Story 1.22.
+1. Obtain the `compostbin-v1.3.9.zip` package for Vintage Story 1.22.
 2. Place the zip file in your Vintage Story `Mods` folder:
    - Windows: `%appdata%/VintagestoryData/Mods/`
    - Linux: `~/.config/VintagestoryData/Mods/`

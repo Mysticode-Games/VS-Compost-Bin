@@ -8,12 +8,6 @@ using Vintagestory.API.MathTools;
 
 static class GuideReviewChecks
 {
-    private static IPlayerInventoryManager testManager;
-    private static bool SupplyInventoryManager(ref IPlayerInventoryManager __result)
-    {
-        __result = testManager;
-        return false;
-    }
     public static void Run()
     {
         int checks = 0;
@@ -35,20 +29,14 @@ static class GuideReviewChecks
         Item output = null;
         var calendar = Stub.Make<IGameCalendar>((m,a) => m.Name == "get_TotalHours" ? 1000d : null);
         var claims = Stub.Make<ILandClaimAPI>((m,a) => m.Name == "TryAccess" ? allowed : null);
+        IPlayer player = null;
         var manager = Stub.Make<IPlayerInventoryManager>((m,a) => {
-            if (m.Name == "OpenInventory") opened++;
+            if (m.Name == "OpenInventory") { opened++; ((IInventory)a[0]).Open(player); }
+            if (m.Name == "CloseInventory") ((IInventory)a[0]).Close(player);
             return m.ReturnType == typeof(bool) ? false : null;
         });
-        // IPlayer has an internal abstract method in 1.22, so DispatchProxy cannot
-        // implement it. Use the real player type with only its inventory getter replaced.
-        var playerType = Assembly.Load("VintagestoryLib").GetType("Vintagestory.Server.ServerPlayer", true);
-        var player = (IPlayer)System.Runtime.CompilerServices.RuntimeHelpers.GetUninitializedObject(playerType);
-        testManager = manager;
-        var playerPatch = new Harmony("compostbin.tests.review-player");
-        playerPatch.Patch(playerType.GetProperty("InventoryManager").GetMethod,
-            prefix: new HarmonyMethod(typeof(GuideReviewChecks).GetMethod(nameof(SupplyInventoryManager), BindingFlags.Static | BindingFlags.NonPublic)));
-        try
-        {
+        using var playerFixture = new SecurityTestPlayer(manager);
+        player = playerFixture.Player;
         var loader = Stub.Make<IModLoader>((m,a) => null);
         var world = Stub.Make<IWorldAccessor>((m,a) => {
             if (m.Name == "SpawnItemEntity") { dropped++; return null; }
@@ -108,7 +96,5 @@ static class GuideReviewChecks
         stack.Attributes.GetOrAddTreeAttribute("temperature").SetDouble("compostWater",double.NaN);
         Check(double.IsFinite(CompostItemBehavior.WaterRatio(stack)), "Corrupt item moisture does not poison heat calculations");
         Console.WriteLine($"Passed {checks} guide-review checks (patch lifetime, server authority, item preservation, saved numbers).");
-        }
-        finally { playerPatch.UnpatchAll("compostbin.tests.review-player"); testManager = null; }
     }
 }

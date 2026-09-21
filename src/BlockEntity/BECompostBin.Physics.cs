@@ -320,6 +320,7 @@ namespace CompostBin
 
         public override void OnBlockRemoved()
         {
+            EndInventoryAccess();
             Api?.ModLoader.GetModSystem<CompostBinModSystem>()?.Unregister(this);
             CloseInventoryDialog();
             base.OnBlockRemoved();

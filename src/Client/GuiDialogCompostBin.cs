@@ -294,7 +294,7 @@ namespace CompostBin
         private void SendInvPacket(object packet)
         {
             capi.Network.SendBlockEntityPacket(
-                BlockEntityPosition.X, BlockEntityPosition.Y, BlockEntityPosition.Z, packet);
+                BlockEntityPosition.X, BlockEntityPosition.InternalY, BlockEntityPosition.Z, packet);
         }
 
         private void OnTitleBarClose()

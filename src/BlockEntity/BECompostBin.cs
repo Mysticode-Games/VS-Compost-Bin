@@ -99,10 +99,7 @@ namespace CompostBin
 
         public BECompostBin()
         {
-            inventory = new InventoryGeneric(SlotCount, null, null, (id, self) =>
-            {
-                return new ItemSlotCompostBin(self, this);
-            });
+            inventory = new InventoryCompostBin(this);
             inventory.BaseWeight = 1;
 
             inventory.SlotModified += OnSlotModified;
@@ -120,8 +117,9 @@ namespace CompostBin
         public override void Initialize(ICoreAPI api)
         {
             base.Initialize(api);
+            inventoryAccessible = true;
             ConfigureBurningBehavior();
-            inventory.LateInitialize(InventoryClassName + "-" + Pos.X + "/" + Pos.Y + "/" + Pos.Z, api);
+            inventory.LateInitialize(InventoryClassName + "-" + Pos.X + "/" + Pos.InternalY + "/" + Pos.Z, api);
             inventory.Pos = Pos;
             inventory.ResolveBlocksOrItems();
             UpdateInventoryLockState();
@@ -237,7 +235,7 @@ namespace CompostBin
 
             UpdateInventoryLockState();
             foreach (IPlayer player in Api.World.AllOnlinePlayers)
-                if (inventory.HasOpened(player))
+                if (((InventoryCompostBin)inventory).HasOpenSession(player))
                     CloseInventoryForPlayer(player);
             for (int i = 0; i < inventory.Count; i++)
             {
@@ -434,7 +432,7 @@ namespace CompostBin
             SealedSinceTotalHours = Api.World.Calendar.TotalHours;
 
             foreach (IPlayer player in Api.World.AllOnlinePlayers)
-                if (inventory.HasOpened(player))
+                if (((InventoryCompostBin)inventory).HasOpenSession(player))
                     CloseInventoryForPlayer(player);
 
             MarkDirty(true);
@@ -532,38 +530,30 @@ namespace CompostBin
                 player.InventoryManager.CloseInventory(inventory);
                 return;
             }
-            if (Api.World.Claims?.TryAccess(player, Pos, EnumBlockAccessFlags.Use) != true)
+            if (!CanPlayerAccess(player, false))
             {
                 CloseInventoryForPlayer(player);
                 return;
             }
-            base.OnReceivedClientPacket(player, packetid, data);
-
             if (packetid < 1000)
             {
-                if (Sealed || IsBurning)
+                if (!CanPlayerAccess(player, true))
                 {
                     CloseInventoryForPlayer(player);
                     return;
                 }
                 inventory.InvNetworkUtil.HandleClientPacket(player, packetid, data);
-                Api.World.BlockAccessor.GetChunkAtBlockPos(Pos)?.MarkModified();
                 return;
             }
 
             if (packetid == (int)EnumBlockEntityPacketId.Open)
             {
-                if (Sealed || IsBurning)
-                {
-                    CloseInventoryForPlayer(player);
-                    return;
-                }
                 player.InventoryManager?.OpenInventory(inventory);
             }
 
             if (packetid == SealPacketId)
             {
-                if (CanSeal())
+                if (CanPlayerAccess(player, true) && CanSeal())
                 {
                     SealBin();
                 }
@@ -583,6 +573,7 @@ namespace CompostBin
 
         public override void OnBlockBroken(IPlayer byPlayer = null)
         {
+            EndInventoryAccess();
             for (int i = 0; Api?.Side == EnumAppSide.Server && i < inventory.Count; i++)
             {
                 ItemSlot slot = inventory[i];
@@ -685,6 +676,7 @@ namespace CompostBin
 
         public override void OnBlockUnloaded()
         {
+            EndInventoryAccess();
             Api?.ModLoader.GetModSystem<CompostBinModSystem>()?.Unregister(this);
             base.OnBlockUnloaded();
             CloseInventoryDialog();
@@ -715,10 +707,7 @@ namespace CompostBin
             float previousFullness = contentsMeshFullness;
             if (inventory == null)
             {
-                inventory = new InventoryGeneric(SlotCount, null, null, (id, self) =>
-                {
-                    return new ItemSlotCompostBin(self, this);
-                });
+                inventory = new InventoryCompostBin(this);
                 inventory.BaseWeight = 1;
                 inventory.SlotModified += OnSlotModified;
                 inventory.OnAcquireTransitionSpeed += OnAcquireTransitionSpeed;
