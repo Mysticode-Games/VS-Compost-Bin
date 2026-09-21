@@ -2,6 +2,7 @@
 	code: "compostbin",
 	class: "BlockCompostBin",
 	entityClass: "BECompostBin",
+	entityBehaviors: [{ name: "Burning" }, { name: "TemperatureSensitive" }],
 	shape: { base: "game:block/wood/barrel/empty" },
 	creativeinventory: { "general": ["*"] },
 	blockmaterial: "Wood",
@@ -10,9 +11,16 @@
 	maxStackSize: 1,
 	lightAbsorption: 1,
 	textures: {
-		"lid": { base: "game:block/wood/barrel/lid" }
+		"lid": { base: "game:block/wood/barrel/lid" },
+		"flax": { base: "game:block/wood/barrel/rot" }
 	},
-	attributes: {},
+	attributes: {
+		handbook: {
+			extraSections: [
+				{ title: "compostbin:handbook-usage-title", text: "compostbin:handbook-usage-text" }
+			]
+		}
+	},
 	sideao: {
 		all: false
 	},

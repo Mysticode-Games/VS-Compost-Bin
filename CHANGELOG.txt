@@ -12,6 +12,156 @@ SBS
 
 
 
+v1.3.8
+------
+
+- Added peat bricks as a configurable, short-lived compost booster. Default half-stack per seven organic stacks gives up to 25% faster decomposition and biological heating, plus reduced biological oxygen consumption after turning.
+- Excess peat amplifies existing hot, dry brown-fueled heating. A full stack doubles the target dose and quadruples chemical heating at default settings; existing moisture, oxygen, temperature, and fuel requirements still govern fire or smoldering.
+- Peat decomposes in 6 effective hours by default and yields only 1 rot per 16 bricks. Native progress pauses outside bins, survives transfers, and averages on merging. Sealed composting is unchanged.
+- Added eight synchronized config settings, ratio formulas and examples, handbook/status text, and peat physics and native-transition regression checks.
+
+v1.3.7
+------
+
+- Fixed the saved-world edit screen crashing at compostbin:settings: synchronized settings now use an encoded value safe for the game's JSON serialization.
+- Existing affected saves are repaired when loaded normally with this version and saved again. Legacy raw settings remain readable.
+- Added regression checks for save-preview JSON parsing, settings preservation, invalid encoding, and replacement of legacy settings on world load.
+
+v1.3.6
+------
+
+- Unsealed bins below 75 C now maintain at least normal spoilage before configured speed multipliers, so cold or inactive compost does not preserve food at default settings.
+- Biological heating remains based on actual activity. Existing overheating, sealing, fire, and smoldering rules remain in effect.
+- Added regression checks for the low-activity spoilage floor and overheating cutoff.
+
+v1.3.5
+------
+
+- Completed coding-guide cleanup: grouped source by responsibility, separated top-level types, extracted physics coordination and material registration from the mod entry point, and standardized formatting and comments.
+- Preserved saved identifiers, config defaults, packet IDs, and gameplay tuning.
+- Reverified all five correctness fixes from 1.3.4 and the full regression suite after the refactor. Formatting checks and all heat-calibration scenarios pass.
+
+v1.3.4
+------
+
+- Reviewed against the local Vintage Story Modding Technical Reference. Server inventory/open/seal packets now recheck land-claim access, reject missing players, and only execute on the server.
+- Breaking a barrel spawns inventory drops only on the server.
+- Harmony patches now use an explicit mod category and remain installed until the last active mod instance is disposed.
+- Compost conversion validates the output item and stack size before consuming rot, preventing item loss or a non-progressing output loop when another mod removes/breaks the output definition.
+- Invalid saved numeric state and item moisture fall back safely instead of propagating non-finite values through the heat simulation.
+- Added regression coverage and a guide-review report. Gameplay tuning and config defaults are unchanged.
+
+v1.3.3
+------
+
+- Disabling self-ignition now substitutes internal smoldering at the same ignition conditions. Greens and browns are destroyed gradually, the barrel emits dense smoke and displays a warning, and no spreading game fire is created.
+- Existing rot and compost are preserved. Cooling/wetting or fuel exhaustion ends smoldering; its state survives save/load.
+- Added SmolderConsumptionItemsPerHour, defaulting to 64 items per game hour. Existing chemical brown fuel consumption remains additional. Default ignition-enabled gameplay is unchanged.
+
+v1.3.2
+------
+
+- Expanded the config to 28 settings covering compost time, minimum rot and yield, decomposition speeds and mixture, heat generation and loss, neighboring heat exchange, evaporation, aeration, ignition conditions, turning, and watering.
+- All defaults retain the tested 1.3.0 gameplay. Server settings also drive client rates, yield previews, warnings, thermometer scale, and turning hints.
+- Existing valid config files gain the new fields while retaining customized values. Invalid values fall back safely with log warnings.
+- Added a full settings guide and example config, plus regression checks for custom settings, world serialization, disabled ignition, and configurable output.
+
+v1.3.1
+------
+
+- Added ModConfig/compostbin.json using the game's built-in config system. CompostingDurationHours controls sealed rot-to-compost time, defaulting to the unchanged 480 game hours.
+- The server supplies the duration to clients so barrel windows and hover text match actual conversion time. Changes take effect after reloading the world/server and also apply to existing sealed batches.
+- Invalid config values fall back to defaults with a log warning, preserving the file for correction. The 64-rot minimum, 4:1 yield, decomposition rates, and physics tuning are unchanged.
+
+v1.3.0
+------
+
+- Initialize simulation time on the first tick with an available world calendar. Fixes server startup failure that prevented barrel physics from running and left decomposition speed stuck.
+- Added a startup lifecycle regression check covering the missing calendar, simulation updates, unloading, and listener cleanup.
+
+- Registered the compost item behavior and supplied its client constructor and serialized properties. Fixes the null behavior-code crash while loading server item definitions and preserves brown decomposition rules on the client.
+
+- Replaced target temperatures and ignition countdowns with a single-pile heat balance, moisture, aeration, evaporation, and finite browns-fueled high-temperature heating.
+- Bins exchange heat through six faces: the open top loses most, the bottom least, and the sides equally. Only adjacent compost bins participate in heat exchange; other surroundings use ambient temperature.
+- Greens retain native spoilage. Supported vanilla browns use native perish progress that advances only inside an unsealed bin, survives removal, and averages during native stack merges.
+- Both greens and browns carry native item temperature outside the bin. Moisture survives transfers and is averaged on merging.
+- Turning exchanges heat with outside air and replenishes aeration. Watering adds moisture and thermal mass. Native environmental cooling supplies rain/immersion effects for hot unsealed bins.
+- Replaced the ignition countdown display with temperature, moisture, aeration, and an overheating warning. The turning hint now responds to aeration.
+- Existing bin temperatures and stored brown decomposition progress migrate. Sealing requirements, 480-hour conversion, 4:1 output, handbook instructions, and native burning in/above the bin are retained.
+- Heat and brown-decomposition simulation run for loaded bins only; greens retain native calendar-based spoilage. The simulation uses modeled coefficients, not measured material properties.
+- Verified heat exchange through all six faces with server-update regression checks. In-game testing confirmed ignition in a neglected loaded 3 x 3 cluster, while a 2 x 3 cluster became hot without igniting under the tested conditions.
+
+v1.2.11
+-------
+
+- Added handbook instructions for filling, turning, watering, and sealing the compost bin, with a warning about overheating.
+
+v1.2.10
+-------
+
+- Ignition now starts native burning on the bin itself and places an additional fire above when the space allows. A blocked top no longer prevents the bin from igniting.
+- Burning bins lock their inventories and stop compost processing. Extinguishing preserves the bin; completed burning consumes it using the game's fire behavior.
+
+v1.2.9
+------
+
+- Added a standard shovel and sneak-right-click interaction hint when an unsealed bin contains perishable material and its aeration boost has expired.
+
+v1.2.8
+------
+
+- Removed unused optional integration code and its startup hook. Composting mechanics are unchanged.
+
+v1.2.7
+------
+
+- Fixed barrel rendering to use the chunk worker's tessellator and a separate mesh for each rebuild.
+- Closed inventory windows now dispose their graphics resources after close callbacks finish.
+- Sealing locks item transfers, closes all viewers, and rejects stale inventory packets. Locks also restore correctly after loading a save.
+- Failed ignition now preserves the bin's contents; contents are consumed only after fire placement and burning setup succeed.
+
+v1.2.6
+------
+
+- Open bins now show a pile of organic material using the vanilla barrel contents mesh and rot texture. Its height follows the same fullness calculation used by the window and overheating rules. Empty bins show no pile; sealed bins retain their closed lid.
+
+v1.2.5
+------
+
+- Added stored pile temperature with gradual heating and cooling. Moving stacks changes the target temperature without instantly changing the reading. Temperature persists across saves.
+- Smaller piles lose more heat; fuller bins cool more slowly. Active compost targets the biological hot-compost range, while the existing overload/fire mechanic remains a separate game abstraction.
+- Turning releases 20% of heat above ambient before aeration supports reheating. Watering releases 40%, reduces heat production, and increases thermal inertia during its six-hour cooling period.
+- Ignition progress now requires at least 70 C in addition to the existing fullness and ratio conditions. Watering suppresses the countdown during cooling. The 12/24-hour danger windows begin after warm-up.
+- Window, hover text, and particles use the same temperature. See THERMAL_MODEL.md for sources and tuning.
+
+v1.2.4
+------
+
+- Dry-material decomposition progress is now saved in bin slots instead of on items, preventing custom attributes from blocking stacking or crediting time spent outside the bin.
+- Existing progress inside bins is migrated. Removed material starts fresh when reinserted; fresh additions to an existing stack dilute its progress proportionally. Partial removal preserves progress on the remaining items.
+- Clean up all old compost tracking attributes, including swap paths. Return previously affected stacks to a bin and remove them to repair them. Normal food spoilage and unrelated mod attributes are preserved.
+
+v1.2.3
+------
+
+- Overheating now requires the bin to be more than 50% full, with more than two greens per brown and at least one brown present.
+- At 75% full or higher, overheating builds twice as fast: 12 game hours to ignition from cold, instead of 24. Changing fullness preserves accumulated progress.
+- Fullness counts occupied fractions of each slot's stack capacity, including all contents. Added fill percentage to the window and hover text.
+- Recheck contents after decomposition before evaluating fire risk. Existing countdowns from older releases reset when upgrading.
+
+v1.2.2
+------
+
+- Fixed clipped status messages in the compost bin window. The status area now reserves three lines and grows for longer text, moving the Seal button below it.
+
+v1.2.1
+------
+
+- Updated for Vintage Story 1.22 and .NET 10; built against 1.22.7.
+- Fixed the right-click crash caused by the removed four-argument DamageItem API. Turning still consumes one shovel durability and breaks the shovel when depleted.
+- Rebuilt particle code against the 1.22 API, resolving an additional missing-method error when creating steam/smoke particles.
+- This release requires Vintage Story 1.22; use 1.2.0 for 1.21.
+
 v1.2.0
 ------
 

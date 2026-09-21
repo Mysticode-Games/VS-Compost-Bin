@@ -1,5 +1,5 @@
-using System;
 using Cairo;
+using System;
 using Vintagestory.API.Client;
 using Vintagestory.API.Common;
 using Vintagestory.API.Config;
@@ -10,19 +10,17 @@ using Vintagestory.API.MathTools;
 namespace CompostBin
 {
     /// <summary>
-    /// The scrying glass through which the summoner peers into the compost bin —
-    /// 8 slots in a 4x2 grid, status text above a thermometer arrow that fills
-    /// left-to-right with heat (following the firepit's own pattern), °C readout
-    /// to its right, and a seal button that manifests only when the rite's
-    /// prerequisites are met.
+    /// Displays inventory, pile conditions, and the seal action.
+    /// Status text resizes with wrapping to keep the action button accessible.
     /// </summary>
     public class GuiDialogCompostBin : GuiDialogBlockEntity
     {
         EnumPosFlag screenPos;
         BECompostBin beCompostBin;
 
-        // Cached for the Cairo draw callback — the daemon remembers between frames
+        // The draw callback uses the most recent synchronized temperature.
         int cachedDisplayTemp;
+        private bool disposed;
 
         protected override double FloatyDialogPosition => 0.6;
         protected override double FloatyDialogAlign => 0.8;
@@ -33,13 +31,14 @@ namespace CompostBin
             ICoreClientAPI capi, BECompostBin be)
             : base(dialogTitle, inventory, blockEntityPos, capi)
         {
-            if (IsDuplicate) return;
+            if (IsDuplicate)
+                return;
             beCompostBin = be;
         }
 
         private void SetupDialog()
         {
-            // 4x2 slot grid for the eight vessels of decay
+            // Match the eight-slot inventory with a 4x2 grid.
             int[] slotIds = new int[] { 0, 1, 2, 3, 4, 5, 6, 7 };
             ElementBounds slotGridBounds = ElementStdBounds.SlotGrid(EnumDialogArea.None, 0, 30, 4, 2);
 
@@ -54,11 +53,11 @@ namespace CompostBin
             // Warning overlay — right-aligned on the bar
             ElementBounds warnRightBounds = ElementBounds.Fixed(0, top, 162, 16);
 
-            // Status text — compact single line below the bar
+            // Reserve room for wrapped status messages below the bar.
             double statusTop = top + 20;
-            ElementBounds statusTextBounds = ElementBounds.Fixed(0, statusTop, 250, 25);
+            ElementBounds statusTextBounds = ElementBounds.Fixed(0, statusTop, 250, 75);
 
-            double buttonTop = statusTop + 28;
+            double buttonTop = statusTop + statusTextBounds.fixedHeight + 8;
 
             // Seal button — below the thermometer
             ElementBounds sealButtonBounds = ElementBounds.Fixed(0, buttonTop, 80, 25);
@@ -119,7 +118,7 @@ namespace CompostBin
             double w = currentBounds.InnerWidth;
             double h = currentBounds.InnerHeight;
 
-            // Dark background — the cold, empty vessel
+            // Dark thermometer background.
             GuiElement.RoundRectangle(ctx, 0, 0, w, h, 1);
             ctx.SetSourceRGBA(0.15, 0.15, 0.15, 1);
             ctx.Fill();
@@ -130,7 +129,7 @@ namespace CompostBin
             ctx.LineWidth = 1;
             ctx.Stroke();
 
-            double fillRel = cachedDisplayTemp / 100.0;
+            double fillRel = Math.Clamp(cachedDisplayTemp / beCompostBin.Settings.IgnitionTemperature, 0, 1);
             if (fillRel > 0.01)
             {
                 double fillW = w * fillRel;
@@ -152,32 +151,37 @@ namespace CompostBin
         /// </summary>
         public void UpdateContents()
         {
-            if (SingleComposer == null) return;
+            if (SingleComposer == null)
+                return;
 
             if (beCompostBin == null)
             {
                 beCompostBin = capi.World.BlockAccessor.GetBlockEntity(BlockEntityPosition) as BECompostBin;
             }
-            if (beCompostBin == null) return;
+            if (beCompostBin == null)
+                return;
 
-            var statusText = SingleComposer.GetDynamicText("statusText");
             var tempText = SingleComposer.GetDynamicText("tempText");
             var warnText = SingleComposer.GetDynamicText("warnText");
+            int displayTemp = beCompostBin.GetDisplayTemperature();
+            if (cachedDisplayTemp != displayTemp)
+            {
+                cachedDisplayTemp = displayTemp;
+                SingleComposer.GetCustomDraw("thermometer")?.Redraw();
+            }
+            tempText?.SetNewText(displayTemp <= 25 ? Lang.Get("Cold") : displayTemp + "\u00B0C");
+            warnText?.SetNewText(beCompostBin.Overheating ? Lang.Get("compostbin:physics-overheating") : "");
 
-            // --- Sealed: the composting rite is underway ---
+            // Sealed conversion progress.
             if (beCompostBin.Sealed)
             {
                 double hoursPassed = capi.World.Calendar.TotalHours - beCompostBin.SealedSinceTotalHours;
                 string passedText = hoursPassed > 24
                     ? Lang.Get("{0} days", Math.Floor(hoursPassed / capi.World.Calendar.HoursPerDay * 10) / 10)
                     : Lang.Get("{0} hours", Math.Floor(hoursPassed));
-                string totalText = Lang.Get("{0} days", Math.Round(BECompostBin.CompostingDurationHours / capi.World.Calendar.HoursPerDay, 1));
+                string totalText = Lang.Get("{0} days", Math.Round(beCompostBin.CompostingDurationHours / capi.World.Calendar.HoursPerDay, 1));
 
-                statusText?.SetNewText(Lang.Get("compostbin:compostbin-composting", passedText, totalText));
-                cachedDisplayTemp = 0;
-                SingleComposer.GetCustomDraw("thermometer")?.Redraw();
-                tempText?.SetNewText("");
-                warnText?.SetNewText("");
+                SetStatusText(Lang.Get("compostbin:compostbin-composting", passedText, totalText));
                 UpdateSealButtonVisibility();
                 return;
             }
@@ -190,7 +194,8 @@ namespace CompostBin
             for (int i = 0; i < Inventory.Count; i++)
             {
                 ItemSlot slot = Inventory[i];
-                if (slot.Empty) continue;
+                if (slot.Empty)
+                    continue;
                 hasItems = true;
 
                 if (slot.Itemstack.Collectible.Code.Path == "rot")
@@ -203,103 +208,58 @@ namespace CompostBin
                 }
             }
 
-            // --- The vessel stands empty ---
+            // Empty inventory.
             if (!hasItems)
             {
-                statusText?.SetNewText(Lang.Get("compostbin:compostbin-empty"));
-                cachedDisplayTemp = 0;
-                SingleComposer.GetCustomDraw("thermometer")?.Redraw();
-                tempText?.SetNewText("");
-                warnText?.SetNewText("");
+                SetStatusText(Lang.Get("compostbin:compostbin-empty"));
                 UpdateSealButtonVisibility();
                 return;
             }
 
             // --- All rot, sufficient for sealing ---
-            if (allRot && totalRot >= BECompostBin.MinRotForSeal)
+            if (allRot && totalRot >= beCompostBin.MinRotForSeal)
             {
-                int compostYield = totalRot / BECompostBin.CompostYieldDivisor;
-                statusText?.SetNewText(Lang.Get("compostbin:compostbin-willproduce", compostYield,
+                int compostYield = totalRot / beCompostBin.CompostYieldDivisor;
+                SetStatusText(Lang.Get("compostbin:compostbin-willproduce", compostYield,
                     Lang.Get("item-compost"),
-                    Lang.Get("{0} days", Math.Round(BECompostBin.CompostingDurationHours / capi.World.Calendar.HoursPerDay, 1))));
-                cachedDisplayTemp = 0;
-                SingleComposer.GetCustomDraw("thermometer")?.Redraw();
-                tempText?.SetNewText("");
-                warnText?.SetNewText("");
+                    Lang.Get("{0} days", Math.Round(beCompostBin.CompostingDurationHours / capi.World.Calendar.HoursPerDay, 1))));
                 UpdateSealButtonVisibility();
                 return;
             }
 
             // --- Active decomposition: compute temperature and speed ---
-            beCompostBin.GetCriticalMassCounts(out int perishableCount, out int dryOfferingCount);
-            float heatFactor = BECompostBin.ComputeHeatFactor(perishableCount, dryOfferingCount);
-
-            ClimateCondition climate = capi.World.BlockAccessor.GetClimateAt(
-                BlockEntityPosition, EnumGetClimateMode.NowValues);
-            float seasonalMod = BECompostBin.ComputeSeasonalModifier(climate?.Temperature ?? 20f);
-            if (beCompostBin.wateredCoolingUntilTotalHours > capi.World.Calendar.TotalHours)
-            {
-                seasonalMod *= 0.5f;
-            }
-
-            int displayTemp = BECompostBin.ComputeDisplayTemperature(
-                perishableCount, dryOfferingCount,
-                beCompostBin.OverheatingSinceTotalHours, capi.World.Calendar.TotalHours,
-                seasonalMod);
-
-            float turningBoost = beCompostBin.ComputeTurningBoost(capi.World.Calendar.TotalHours);
-            float effectiveSpeed = BECompostBin.BasePerishSpeedMul * heatFactor * seasonalMod * turningBoost;
-
-            // --- Build compact status — one line; the arrow carries temperature ---
-            string status;
-
-            if (beCompostBin.OverheatingSinceTotalHours > 0)
-            {
-                double hoursLeft = BECompostBin.OverheatIgnitionHours - (capi.World.Calendar.TotalHours - beCompostBin.OverheatingSinceTotalHours);
-                if (hoursLeft > 0)
-                {
-                    status = Lang.Get("compostbin:compostbin-ignition", (int)Math.Ceiling(hoursLeft));
-                }
-                else
-                {
-                    status = Lang.Get("compostbin:compostbin-rate", Math.Round(effectiveSpeed, 1));
-                }
-            }
-            else if (dryOfferingCount > 0 && perishableCount < dryOfferingCount)
-            {
-                status = Lang.Get("compostbin:compostbin-stalled", perishableCount, dryOfferingCount);
-            }
-            else if (effectiveSpeed > 1f)
-            {
-                string speedText = Lang.Get("compostbin:compostbin-rate", Math.Round(effectiveSpeed, 1));
-                status = turningBoost > 1f
-                    ? speedText + " " + Lang.Get("compostbin:compostbin-turned", Math.Round(turningBoost, 1))
-                    : speedText;
-            }
-            else
-            {
-                status = totalRot > 0
-                    ? Lang.Get("compostbin:compostbin-contents", totalRot)
-                    : "";
-            }
-
-            statusText?.SetNewText(status);
-
-            // --- Thermometer arrow: redraw with current heat ---
-            cachedDisplayTemp = displayTemp;
-            SingleComposer.GetCustomDraw("thermometer")?.Redraw();
-
-            // --- Temperature on the left, warning on the right ---
-            string tempString = displayTemp <= 25 ? Lang.Get("Cold") : displayTemp + "\u00B0C";
-            tempText?.SetNewText(tempString);
-            warnText?.SetNewText(beCompostBin.OverheatingSinceTotalHours > 0 ? "OVERHEATING" : "");
+            SetStatusText(beCompostBin.PhysicsDescription());
 
             UpdateSealButtonVisibility();
         }
 
+        private void SetStatusText(string text)
+        {
+            var statusText = SingleComposer.GetDynamicText("statusText");
+            if (statusText == null)
+                return;
+            text = Lang.Get("compostbin:compostbin-fullness",
+                Math.Round(beCompostBin.GetFullness() * 100, 1)) + "\n" + text;
+
+            // Measure at the current GUI scale so longer translations also fit.
+            double textHeight = new TextDrawUtil().GetMultilineTextHeight(
+                statusText.Font, text, statusText.Bounds.InnerWidth);
+            double height = Math.Max(75, Math.Ceiling(textHeight / RuntimeEnv.GUIScale) + 4);
+            if (statusText.Bounds.fixedHeight != height)
+            {
+                statusText.Bounds.fixedHeight = height;
+                SingleComposer.GetButton("sealButton").Bounds.fixedY =
+                    statusText.Bounds.fixedY + height + 8;
+                SingleComposer.ReCompose();
+            }
+
+            statusText.SetNewText(text);
+        }
+
         private void UpdateSealButtonVisibility()
         {
-            if (SingleComposer == null) return;
+            if (SingleComposer == null)
+                return;
 
             if (beCompostBin == null)
             {
@@ -308,7 +268,8 @@ namespace CompostBin
 
             bool canSeal = beCompostBin != null && !beCompostBin.Sealed && beCompostBin.CanSeal();
             var sealButton = SingleComposer.GetButton("sealButton");
-            if (sealButton != null) sealButton.Visible = canSeal;
+            if (sealButton != null)
+                sealButton.Visible = canSeal;
         }
 
         private bool OnSealClick()
@@ -317,10 +278,12 @@ namespace CompostBin
             {
                 beCompostBin = capi.World.BlockAccessor.GetBlockEntity(BlockEntityPosition) as BECompostBin;
             }
-            if (beCompostBin == null || beCompostBin.Sealed) return true;
-            if (!beCompostBin.CanSeal()) return true;
+            if (beCompostBin == null || beCompostBin.Sealed)
+                return true;
+            if (!beCompostBin.CanSeal())
+                return true;
 
-            // The server is the sole authority — packet 1337 commands the seal
+            // The server validates contents and claim access before sealing.
             capi.Network.SendBlockEntityPacket(BlockEntityPosition, BECompostBin.SealPacketId);
             capi.World.PlaySoundAt(new AssetLocation("game:sounds/player/seal"), BlockEntityPosition, 0.4, null);
 
@@ -349,9 +312,17 @@ namespace CompostBin
 
         public override void OnGuiClosed()
         {
-            SingleComposer.GetSlotGrid("slotGrid")?.OnGuiClosed(capi);
+            SingleComposer?.GetSlotGrid("slotGrid")?.OnGuiClosed(capi);
             base.OnGuiClosed();
             FreePos("smallblockgui", screenPos);
+        }
+
+        public override void Dispose()
+        {
+            if (disposed)
+                return;
+            disposed = true;
+            base.Dispose();
         }
     }
 }

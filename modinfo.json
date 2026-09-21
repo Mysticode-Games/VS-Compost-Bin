@@ -3,15 +3,15 @@
 	"modId": "compostbin",
 	"name": "Compost Bin",
 	"authors": ["gtmat"],
-	"description": "A barrel-variant block with 8 slots that accepts rottable items, accelerates rot at 150% speed, and converts accumulated rot into compost via sealing.",
-	"version": "1.2.0",
+	"description": "An eight-slot compost bin with heat, moisture, aeration, neighboring-bin heat exchange, and sealed rot-to-compost conversion.",
+	"version": "1.3.8",
 	"side": "Universal",
 	"requiredOnClient": true,
 	"requiredOnServer": true,
 	"website": "https://github.com/Mysticode-Games/VS-Compost-Bin",
 	"iconPath": "modicon.png",
 	"dependencies": {
-		"game": "1.20.0",
-		"survival": "1.20.0"
+		"game": "1.22.0",
+		"survival": "1.22.0"
 	}
 }
